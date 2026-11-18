@@ -1,0 +1,1 @@
+ALTER TABLE `accounts` ADD `excluded_from_reports` integer DEFAULT 0 NOT NULL;

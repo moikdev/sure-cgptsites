@@ -1,0 +1,3 @@
+import {z} from 'zod';import {validDate} from './finance.ts';
+export const automaticTransferSchema=z.object({action:z.literal('automaticTransfers'),operation:z.enum(['scan','confirm','reject','release','settings']),mode:z.enum(['preview','commit']),enabled:z.boolean().optional(),transferIds:z.array(z.string().uuid()).min(1).max(10000).optional(),accountId:z.string().uuid().optional(),offset:z.number().int().safe().nonnegative().max(20000).default(0),expectedRevision:z.number().int().safe().nonnegative().optional(),receipt:z.string().regex(/^[0-9a-f]{64}$/).optional(),reviewedOn:z.string().refine(validDate).optional()}).strict();
+export const automaticTransferCommands=[automaticTransferSchema] as const;

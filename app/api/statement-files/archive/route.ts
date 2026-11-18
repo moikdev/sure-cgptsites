@@ -1,0 +1,2 @@
+import {getChatGPTUser} from '../../../chatgpt-auth';import {fileFailure,downloadStatementArchive,privateFileHeaders} from '../../../../lib/statement-files';
+export const dynamic='force-dynamic';export async function GET(){try{const user=await getChatGPTUser();if(!user)return Response.json({error:'Sign in with ChatGPT to continue.'},{status:401,headers:privateFileHeaders});return await downloadStatementArchive(user.userId);}catch(error){return fileFailure(error);}}

@@ -1,0 +1,9 @@
+{"type":"Account","data":{"id":"fx-usd","name":"Foreign USD portfolio","accountable_type":"Investment","classification":"asset","balance":"1000.00","currency":"USD","status":"active"}}
+{"type":"Trade","data":{"id":"fx-buy","account_id":"fx-usd","security_id":"fx-stock","ticker":"FXABC","date":"2026-01-02","qty":"10","price":"10","amount":"101.00","currency":"EUR","created_at":"2026-01-02T10:00:00.123456Z"}}
+{"type":"Trade","data":{"id":"fx-sell","account_id":"fx-usd","security_id":"fx-stock","ticker":"FXABC","date":"2026-01-03","qty":"-2","price":"12","amount":"-23.50","currency":"EUR"}}
+{"type":"Trade","data":{"id":"fx-dividend","account_id":"fx-usd","security_id":"fx-stock","ticker":"FXABC","date":"2026-01-02","qty":"0","price":"0","amount":"-10","currency":"EUR"}}
+{"type":"Holding","data":{"id":"fx-observation","account_id":"fx-usd","security_id":"fx-stock","ticker":"FXABC","date":"2026-01-04","qty":"8","price":"12.5","amount":"101.01","currency":"EUR","cost_basis":"10.1","cost_basis_source":"manual","cost_basis_locked":true,"security_locked":true}}
+{"type":"Balance","data":{"id":"fx-daily","account_id":"fx-usd","date":"2026-01-04","balance":"1000","currency":"USD"}}
+{"type":"Account","data":{"id":"fx-jpy","name":"Foreign yen portfolio","accountable_type":"Crypto","classification":"asset","balance":"100000","currency":"JPY","status":"active"}}
+{"type":"Trade","data":{"id":"fx-fractional","account_id":"fx-jpy","security_id":"fx-coin","ticker":"FXCOIN","date":"2026-01-02","qty":"0.29","price":"1","amount":"0.30","currency":"EUR"}}
+{"type":"Holding","data":{"id":"fx-coin-observation","account_id":"fx-jpy","security_id":"fx-coin","ticker":"FXCOIN","date":"2026-01-02","qty":"0.29","price":"1","amount":"0.31","currency":"EUR","cost_basis":"1","cost_basis_source":"manual","cost_basis_locked":true,"security_locked":false}}

@@ -1,0 +1,22 @@
+{"type":"Account","data":{"id":"owned-a","name":"My checking","accountable_type":"Depository","classification":"asset","balance":"1000.00","currency":"USD","owner_id":"member-a","status":"active"}}
+{"type":"Account","data":{"id":"owned-b","name":"Other checking","accountable_type":"Depository","classification":"asset","balance":"1000.00","currency":"USD","owner_id":"member-b","status":"active"}}
+{"type":"Account","data":{"id":"owned-eur","name":"Euro checking","accountable_type":"Depository","classification":"asset","balance":"1000.00","currency":"EUR","owner_id":"member-a","status":"active"}}
+{"type":"Category","data":{"id":"food","name":"Food","color":"#445566","parent_id":null}}
+{"type":"Category","data":{"id":"groceries","name":"Groceries","color":"#445566","parent_id":"food"}}
+{"type":"Category","data":{"id":"income","name":"Income","color":"#445566","parent_id":null}}
+{"type":"Transaction","data":{"id":"grocery","account_id":"owned-a","date":"2026-01-20","amount":"30.00","currency":"USD","name":"Groceries","category_id":"groceries","kind":"standard"}}
+{"type":"Transaction","data":{"id":"food-a","account_id":"owned-a","date":"2026-01-21","amount":"10.00","currency":"USD","name":"Food A","category_id":"food","kind":"standard"}}
+{"type":"Transaction","data":{"id":"food-b","account_id":"owned-b","date":"2026-01-22","amount":"50.00","currency":"USD","name":"Food B","category_id":"food","kind":"standard"}}
+{"type":"Transaction","data":{"id":"euro-food","account_id":"owned-eur","date":"2026-01-23","amount":"5.00","currency":"EUR","name":"Euro food","category_id":"food","kind":"standard"}}
+{"type":"Transaction","data":{"id":"feb-food","account_id":"owned-a","date":"2026-02-20","amount":"20.00","currency":"USD","name":"Food February","category_id":"food","kind":"standard"}}
+{"type":"Budget","data":{"id":"house-jan","family_id":"source-family","user_id":null,"start_date":"2026-01-15","end_date":"2026-02-14","currency":"USD","budgeted_spending":"200.00","expected_income":"300.00"}}
+{"type":"Budget","data":{"id":"house-feb","family_id":"source-family","user_id":null,"start_date":"2026-02-15","end_date":"2026-03-14","currency":"USD","budgeted_spending":"200.00","expected_income":"300.00"}}
+{"type":"Budget","data":{"id":"house-mar","family_id":"source-family","user_id":null,"start_date":"2026-03-15","end_date":"2026-04-14","currency":"EUR","budgeted_spending":"200.00","expected_income":"300.00"}}
+{"type":"Budget","data":{"id":"personal-jan","family_id":"source-family","user_id":"member-a","start_date":"2026-01-15","end_date":"2026-02-14","currency":"USD","budgeted_spending":"80.00","expected_income":"100.00"}}
+{"type":"BudgetCategory","data":{"id":"jan-food","budget_id":"house-jan","category_id":"food","currency":"USD","budgeted_spending":"100.00","rollover_enabled":true,"rolled_over_amount":"10.00"}}
+{"type":"BudgetCategory","data":{"id":"jan-groceries","budget_id":"house-jan","category_id":"groceries","currency":"USD","budgeted_spending":"40.00","rollover_enabled":true,"rolled_over_amount":"5.00"}}
+{"type":"BudgetCategory","data":{"id":"feb-food","budget_id":"house-feb","category_id":"food","currency":"USD","budgeted_spending":"100.00","rollover_enabled":true,"rolled_over_amount":"10.00"}}
+{"type":"BudgetCategory","data":{"id":"feb-groceries","budget_id":"house-feb","category_id":"groceries","currency":"USD","budgeted_spending":"40.00","rollover_enabled":true,"rolled_over_amount":"15.00"}}
+{"type":"BudgetCategory","data":{"id":"mar-food","budget_id":"house-mar","category_id":"food","currency":"EUR","budgeted_spending":"100.00","rollover_enabled":true,"rolled_over_amount":"999.00"}}
+{"type":"BudgetCategory","data":{"id":"mar-groceries","budget_id":"house-mar","category_id":"groceries","currency":"EUR","budgeted_spending":"40.00","rollover_enabled":true,"rolled_over_amount":"999.00"}}
+{"type":"BudgetCategory","data":{"id":"personal-food","budget_id":"personal-jan","category_id":"food","currency":"USD","budgeted_spending":"50.00","rollover_enabled":true,"rolled_over_amount":"0.00"}}

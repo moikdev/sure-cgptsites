@@ -1,0 +1,1 @@
+ALTER TABLE `recurring_allocations` ADD `split_line_id` text;

@@ -1,0 +1,15 @@
+import { z } from "zod";
+import { CURRENCIES, validDate } from "./finance.ts";
+export const ledgerKey = z.string().min(1).max(160);
+export const ledgerAmount = z.number().int().safe().min(-1_000_000_000_000).max(1_000_000_000_000);
+export const ledgerDate = z.string().refine(validDate, "Choose a valid calendar date.");
+export const ledgerColor = z.string().regex(/^#[\da-fA-F]{6}$/);
+export const tagIdsSchema = z.array(ledgerKey).max(100).refine(ids => new Set(ids).size === ids.length, "Tags must be unique.").default([]);
+export const websiteSchema = z.string().max(2000).url().refine(value => { const url = new URL(value); return ["http:", "https:"].includes(url.protocol) && !url.username && !url.password; }, "Use an HTTP or HTTPS URL without credentials.").nullable().default(null);
+export const splitFields = { name: z.string().trim().min(1).max(160), amount: ledgerAmount, categoryId: ledgerKey.nullable().default(null), merchantId: ledgerKey.nullable().default(null), tagIds: tagIdsSchema, notes: z.string().max(2000).default(""), kind: z.enum(["standard", "one_time", "loan_payment", "investment_contribution"]).default("standard"), excluded: z.union([z.literal(0), z.literal(1)]).default(0) };
+export const recurrenceRuleSchema = z.object({ frequency: z.enum(["weekly", "monthly", "yearly"]), interval: z.number().int().min(1).max(1200), dayOfMonth: z.number().int().min(-1).max(31).refine(n => n !== 0).nullable(), weekday: z.number().int().min(0).max(6).nullable(), weekdayOrdinal: z.number().int().min(-1).max(5).refine(n => n !== 0).nullable(), monthOfYear: z.number().int().min(1).max(12).nullable() });
+export const recurringFields = {
+  name: z.string().trim().min(1).max(160), accountId: ledgerKey.nullable(), destinationAccountId: ledgerKey.nullable().default(null), categoryId: ledgerKey.nullable().default(null), merchantId: ledgerKey.nullable().default(null), tagIds: tagIdsSchema,
+  amount: ledgerAmount, currency: z.enum(CURRENCIES), billType: z.enum(["bill", "subscription", "installment", "income", "transfer", "other"]), status: z.enum(["active", "paused", "ended", "suggested", "inactive"]), anchorDate: ledgerDate, startsOn: ledgerDate, expectedDayOfMonth: z.number().int().min(1).max(31), rules: z.array(recurrenceRuleSchema).max(12).default([]),
+  endMode: z.enum(["never", "on_date", "after_count"]), endOn: ledgerDate.nullable(), endAfterCount: z.number().int().min(1).max(600).nullable(), weekendAdjust: z.enum(["none", "skip", "before", "after"]), amountStrategy: z.enum(["fixed", "average", "last"]).default("fixed"), expectedAmountMin: ledgerAmount.refine(n => n >= 0).nullable().default(null), expectedAmountMax: ledgerAmount.refine(n => n >= 0).nullable().default(null), expectedAmountAvg: ledgerAmount.refine(n => n >= 0).nullable().default(null), notifyDaysBefore: z.number().int().min(0).max(365).default(3), overdueGraceDays: z.number().int().min(0).max(365).default(3), notes: z.string().max(2000).default(""), paymentUrl: websiteSchema, autopay: z.union([z.literal(0), z.literal(1)]).default(0),
+};

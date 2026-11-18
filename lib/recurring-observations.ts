@@ -1,0 +1,4 @@
+import {z} from 'zod';import {validDate} from './finance.ts';
+export const recurringTimestamp=z.string().refine(value=>/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value)&&validDate(value.slice(0,10))&&Number.isFinite(Date.parse(value))&&new Date(value).toISOString()===value,'Choose a supported UTC timestamp.');
+export const recurringObservationFields={lastOccurrenceOn:z.string().refine(validDate).nullable().optional(),occurrenceCount:z.number().int().min(0).max(1_000_000_000).nullable().optional(),updatedAt:recurringTimestamp.nullable().optional()};
+export function sourceRecurringTimestamp(value:unknown,line:string){if(value==null||value==='')return undefined;if(typeof value!=='string'||!/^\d{4}-\d{2}-\d{2}T/.test(value)||!validDate(value.slice(0,10))||!Number.isFinite(Date.parse(value)))throw new Error(line+': invalid recurring update timestamp.');return recurringTimestamp.parse(new Date(value).toISOString());}

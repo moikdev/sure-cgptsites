@@ -1,0 +1,2 @@
+CREATE INDEX `recurring_allocations_owner_occurrence` ON `recurring_allocations` (`owner_id`,`occurrence_id`);--> statement-breakpoint
+CREATE INDEX `recurring_allocations_owner_transaction` ON `recurring_allocations` (`owner_id`,`transaction_id`);

@@ -1,0 +1,22 @@
+{"type":"Account","data":{"id":"bank","name":"Main bank","accountable_type":"Depository","subtype":"checking","classification":"asset","balance":"900.75","currency":"USD","status":"active","family_id":"source-family"}}
+{"type":"Account","data":{"id":"card","name":"Credit card","accountable_type":"CreditCard","classification":"liability","balance":"100.25","currency":"USD","status":"active"}}
+{"type":"Account","data":{"id":"yen","name":"Yen savings","accountable_type":"Depository","accountable":{"subtype":"savings"},"classification":"asset","balance":"25000.0","currency":"JPY","status":"disabled","exclude_from_reports":true}}
+{"type":"Category","data":{"id":"food","name":"Food","color":"#4da568","parent_id":null}}
+{"type":"Category","data":{"id":"groceries","name":"Groceries","color":"#4da568","parent_id":"food"}}
+{"type":"Category","data":{"id":"utilities","name":"Utilities","color":"#6471eb","parent_id":null}}
+{"type":"Tag","data":{"id":"tag","name":"Trip"}}
+{"type":"Merchant","data":{"id":"merchant","name":"Market","color":"#4da568"}}
+{"type":"Transaction","data":{"id":"expense","account_id":"bank","date":"2026-02-02","amount":"100.25","currency":"USD","name":"Groceries","category_id":"groceries","kind":"standard","excluded":false,"merchant_id":"merchant","tag_ids":["tag"]}}
+{"type":"Transaction","data":{"id":"income","account_id":"bank","date":"2026-02-03","amount":"-500.00","currency":"USD","name":"Salary","category_id":null,"kind":"standard","excluded":false}}
+{"type":"Transaction","data":{"id":"outflow","account_id":"bank","date":"2026-02-04","amount":"50.00","currency":"USD","name":"Card payment","kind":"cc_payment","category_id":null,"excluded":false}}
+{"type":"Transaction","data":{"id":"inflow","account_id":"card","date":"2026-02-05","amount":"-50.00","currency":"USD","name":"Card payment received","kind":"funds_movement","category_id":null,"excluded":false}}
+{"type":"Transaction","data":{"id":"card-expense","account_id":"card","date":"2026-02-06","amount":"10.25","currency":"USD","name":"Card purchase","kind":"standard","category_id":"groceries","excluded":true}}
+{"type":"Transaction","data":{"id":"split","account_id":"bank","date":"2026-02-07","amount":"10.00","currency":"USD","name":"Split receipt","kind":"standard","category_id":null,"excluded":true,"split_lines":[{"id":"split-food","amount":"3.00","currency":"USD","name":"Groceries split","category_id":"groceries","kind":"standard","excluded":false},{"id":"split-utility","amount":"7.00","currency":"USD","name":"Utilities split","category_id":"utilities","kind":"standard","excluded":false}]}}
+{"type":"Transfer","data":{"id":"pair","outflow_transaction_id":"outflow","inflow_transaction_id":"inflow","status":"confirmed","investment_contribution":null}}
+{"type":"Balance","data":{"id":"history-bank","account_id":"bank","date":"2026-02-01","balance":"1000.00","currency":"USD"}}
+{"type":"Balance","data":{"id":"history-card","account_id":"card","date":"2026-02-01","balance":"200.00","currency":"USD"}}
+{"type":"Balance","data":{"id":"converted-yen","account_id":"yen","date":"2026-02-01","balance":"166.00","currency":"USD"}}
+{"type":"Valuation","data":{"id":"opening-bank","account_id":"bank","date":"2026-01-01","amount":"1000.00","currency":"USD","name":"Opening bank balance","kind":"opening_anchor"}}
+{"type":"Budget","data":{"id":"monthly","family_id":"source-family","user_id":null,"start_date":"2026-02-01","end_date":"2026-02-28","currency":"USD"}}
+{"type":"BudgetCategory","data":{"id":"utility-budget","budget_id":"monthly","category_id":"utilities","budgeted_spending":"100.00","currency":"USD","rollover_enabled":false,"rolled_over_amount":"0.00"}}
+{"type":"BudgetCategory","data":{"id":"food-budget","budget_id":"monthly","category_id":"food","budgeted_spending":"200.00","currency":"USD","rollover_enabled":false,"rolled_over_amount":"0.00"}}

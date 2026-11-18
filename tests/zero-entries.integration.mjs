@@ -1,0 +1,93 @@
+import {localFetch as fetch} from './local-http.mjs';
+import assert from 'node:assert/strict';
+import {writeFileSync} from 'node:fs';
+import {execFileSync} from 'node:child_process';
+import {createHash} from 'node:crypto';
+import {accountBalance,monthlySummary,today} from '../lib/finance.ts';
+import {filteredReportEntries,exportableReportEntries} from '../lib/ledger-query.ts';
+import {readBackupArchive,restoreArchiveOriginals} from '../lib/backup-archive.ts';
+import {png} from './receipt-fixtures.ts';
+
+const origin='http://127.0.0.1:8799',owner='zero-'+crypto.randomUUID(),other='zero-other-'+crypto.randomUUID(),target='zero-restore-'+crypto.randomUUID(),largeOwner='zero-limit-'+crypto.randomUUID();let checks=0;
+async function call(path,body,status=200,user=owner,method=body===undefined?'GET':'POST',raw=false,extra={}){
+  checks++;const r=await fetch(origin+path,{method,headers:{Origin:origin,'Content-Type':method==='PUT'?'text/csv':'application/json',...(user?{'oai-authenticated-user-id':user,'oai-authenticated-user-email':user+'@example.test'}:{}),...extra},...(body===undefined?{}:{body:method==='PUT'||raw?body:JSON.stringify(body)})});
+  assert.ok((Array.isArray(status)?status:[status]).includes(r.status),`${checks} ${path}: ${await (r.status===status?Promise.resolve(''):r.clone().text())}`);assert.match(r.headers.get('cache-control'),/no-store/);return raw?r:r.json();
+}
+const post=(c,status=200,user=owner)=>call('/api/finance',c,status,user),get=(user=owner)=>call('/api/finance',undefined,200,user),csv=(c,status=200,user=owner)=>call('/api/csv-imports',c,status,user),native=(c,status=200,user=owner)=>call('/api/native-sources',c,status,user),review=(id,user=owner,offset=0)=>call('/api/csv-imports?'+new URLSearchParams({id,offset:String(offset)}),undefined,200,user),hash=b=>createHash('sha256').update(b).digest('hex'),sql=command=>JSON.parse(execFileSync(process.execPath,['--import','./scripts/sites-env.mjs','./node_modules/wrangler/bin/wrangler.js','d1','execute','DB','--local','--config','dist/server/wrangler.json','--persist-to','.wrangler/state','--command',command,'--json'],{encoding:'utf8',stdio:'pipe'}));
+const options={delimiter:',',dateFormat:'ymd',numberFormat:'decimal-dot',amountMode:'signed',signage:'outflows-negative',columns:{date:0,name:1,amount:2}},commit=r=>({action:'commit',id:r.import.id,expectedRevision:r.expectedRevision,receipt:r.receipt,reviewedOn:r.reviewedOn}),undo=r=>({action:'revertCommit',id:r.import.id,expectedRevision:r.expectedRevision,receipt:r.receipt,reviewedOn:r.reviewedOn,confirmation:'REVERT'}),account=(name,currency='USD')=>({action:'account',name,type:'checking',currency,openingDate:'2026-01-01',openingBalance:10000}),transaction=(accountId,name='Memo',patch={})=>({action:'transaction',accountId,categoryId:null,date:'2026-01-02',name,amount:0,kind:'standard',notes:'Original memo note',...patch});
+const balances=s=>s.accounts.map(a=>[a.name,accountBalance(a,s,today())]);
+await post(transaction(crypto.randomUUID()),401,null);
+for(const user of [owner,other,largeOwner,target])await post({action:'initialize',name:'Zero entries',currency:'USD'},200,user);
+for(const [name,currency] of [['Dollar','USD'],['Yen','JPY'],['Dinar','KWD']])await post(account(name,currency));
+await post(account('Other'),200,other);let s=await get(),a=s.accounts.find(a=>a.currency==='USD'),foreign=(await get(other)).accounts[0],baseline=balances(s),monthly=monthlySummary(s,'USD','2026-01','2026-01-31');
+await post({action:'tag',name:'Memo label',color:'#123456'});s=await get();const tag=s.tags[0],category=s.categories.find(c=>c.name==='Groceries');
+await post(transaction(foreign.id),404);await call('/api/finance',transaction(a.id),403,owner,'POST',false,{Origin:'https://outside.example'});
+for(const acct of s.accounts)await post(transaction(acct.id,'Memo '+acct.currency,{tagIds:[tag.id],categoryId:category.id}));
+s=await get();assert.deepEqual(balances(s),baseline);let memo=s.transactions.find(t=>t.accountId===a.id);
+assert.equal(memo.amount,0);assert.deepEqual(memo.tagIds,[tag.id]);assert.equal(memo.notes,'Original memo note');
+await post(transaction(a.id,'Edited zero',{id:memo.id,notes:'Updated zero note',tagIds:[tag.id]}));
+await post({action:'setSplit',id:memo.id,amount:0,lines:[{name:'First memo',amount:0,tagIds:[tag.id],notes:'Line note'},{name:'Second memo',amount:0}]});
+s=await get();assert.equal(s.splitLines.length,2);assert.ok(s.splitLines.every(l=>l.amount===0));assert.deepEqual(balances(s),baseline);
+await post({action:'setSplit',id:memo.id,amount:0,lines:[{name:'Bad sum',amount:-1},{name:'Other',amount:0}]},400);
+await post({action:'setSplit',id:memo.id,amount:0,lines:[{name:'Purchase',amount:-500},{name:'Refund',amount:500},{name:'Memo',amount:0,notes:'Offset explanation'}]});
+s=await get();assert.deepEqual(balances(s),baseline);assert.equal(s.splitLines.reduce((n,l)=>n+l.amount,0),0);
+await post({action:'clearSplit',id:memo.id});
+await post({action:'setSplit',id:memo.id,amount:0,lines:[{name:'First memo',amount:0,tagIds:[tag.id],notes:'Line note'},{name:'Second memo',amount:0}]});
+const receiptBytes=png(),receipt=await (await call('/api/statement-files?'+new URLSearchParams({filename:'zero.png',transactionId:memo.id}),receiptBytes,200,owner,'POST',true,{'Content-Type':'image/png'})).json();
+s=await get();assert.equal(s.transactionReceipts[0].transactionId,memo.id);assert.deepEqual(balances(s),baseline);
+// Zero entries are still evidence: statement completion records them, and later edits flag review.
+await post({action:'reconcileTransactions',ids:[memo.id],status:'cleared'});
+await post({action:'statement',accountId:a.id,title:'Zero statement',currency:'USD',periodStart:'2026-01-01',periodEnd:'2026-01-31',openingBalance:10000,closingBalance:10000,notes:''});
+let st=(await get()).accountStatements[0],finish=await post({action:'statementOperation',id:st.id,operation:'finish',mode:'preview'});
+await post({action:'statementOperation',id:st.id,operation:'finish',mode:'commit',expectedRevision:finish.expectedRevision,receipt:finish.receipt});
+s=await get();assert.equal(s.transactions.find(t=>t.id===memo.id).reconciledStatus,'reconciled');
+await post(transaction(a.id,'Edited zero',{id:memo.id,date:'2026-01-03',notes:'Edited statement memo',tagIds:[tag.id]}));
+s=await get();assert.equal(s.accountStatements[0].reviewRequired,1);assert.deepEqual(balances(s),baseline);
+const f={currency:'USD',month:'2026-01'};assert.equal(filteredReportEntries(s,f).length,2);assert.equal(exportableReportEntries(s,f).length,2);
+const totals=monthlySummary(s,'USD','2026-01','2026-01-31');assert.equal(totals.income,monthly.income);assert.equal(totals.expenses,monthly.expenses);
+// Money-moving commands retain their strictly positive amounts.
+await post({action:'transfer',fromId:a.id,toId:s.accounts.find(x=>x.id!==a.id).id,date:'2026-01-02',name:'Zero transfer',amount:0},400);
+await post({action:'transferMatch',mode:'preview',operation:'link',transactionId:memo.id,counterpartId:s.transactions.find(t=>t.id!==memo.id).id},400);
+await post({action:'transferCounterpart',mode:'preview',transactionId:memo.id,targetAccountId:s.accounts.find(x=>x.id!==a.id).id,requestId:crypto.randomUUID(),counterpartAmount:1},400);
+await post({action:'payOccurrence',recurringEntryId:crypto.randomUUID(),originalDueOn:'2026-01-02',requestId:crypto.randomUUID(),mode:'new',amount:0,paidOn:'2026-01-02'},400);
+await post({action:'consumeGoal',id:crypto.randomUUID(),accountId:a.id,amount:0,date:'2026-01-02'},400);
+await post({action:'transaction',...transaction(a.id),amount:1000000000001},400);
+// Direct CSV and automatic expense rules preserve zero amounts and their occurrence identities.
+await post({action:'rule',name:'Memo expense labels',active:1,position:1,group:'Memo',effectiveDate:null,currency:'USD',stopProcessing:0,conditions:[{field:'type',operator:'=',value:'expense'},{field:'name',operator:'=',value:'CSV memo'}],actions:[{type:'categoryId',value:category.id}],blockedReason:null,sourceJson:null});
+const direct='date,name,amount\n2026-01-02,CSV memo,0\n2026-01-02,CSV memo,-0.00';
+await post({action:'import',accountId:a.id,csv:direct});s=await get();assert.equal(s.transactions.filter(t=>t.name==='CSV memo').length,2);assert.ok(s.transactions.filter(t=>t.name==='CSV memo').every(t=>t.amount===0&&t.categoryId===category.id));assert.deepEqual(balances(s),baseline);
+const directRevision=s.profile.revision;await post({action:'import',accountId:a.id,csv:direct});s=await get();assert.equal(s.profile.revision,directRevision);
+await post({action:'import',accountId:a.id,csv:'date,name,debit,credit\n2026-01-03,Blank,,',csvOptions:{...options,amountMode:'split',columns:{date:0,name:1,debit:2,credit:3}}},400);
+await post({action:'import',accountId:a.id,csv:'date,name,debit,credit\n2026-01-03,Explicit zero,0,',csvOptions:{...options,amountMode:'split',columns:{date:0,name:1,debit:2,credit:3}}});
+const reserve=async(text,user=owner,accountId=a.id)=>{const id=(await csv({action:'reserve',accountId,requestId:crypto.randomUUID(),filename:'zeros.csv',byteSize:Buffer.byteLength(text),sha256:hash(text),options},200,user)).import.id;await call('/api/csv-imports?id='+id,text,200,user,'PUT');return id;};
+const sourceText='date,name,amount\n2026-01-04,Saved zero,0\n2026-01-04,Saved zero,0',sourceId=await reserve(sourceText);let r=await review(sourceId);assert.equal(r.imported,2);assert.ok(r.rows.every(row=>row.transaction.amount===0));
+await call('/api/csv-imports?id='+sourceId,undefined,404,other);await post({action:'profile',name:'Change while reviewing',currency:'USD'});await csv(commit(r),409);r=await review(sourceId);
+// A final completion failure rolls back zero-valued records, ownership and revision together.
+const fail='zero_complete_'+crypto.randomUUID().replaceAll('-','');sql(`CREATE TRIGGER ${fail} BEFORE UPDATE OF status ON csv_imports WHEN NEW.id='${sourceId}' AND NEW.status='complete' BEGIN SELECT RAISE(ABORT,'synthetic zero failure'); END`);
+const stable=await get();try{await csv(commit(r),500);assert.deepEqual(await get(),stable);}finally{sql(`DROP TRIGGER ${fail}`);}
+const approved=commit(r);await Promise.all([csv(approved),csv(approved)]);s=await get();assert.equal(s.profile.revision,stable.profile.revision+1);assert.equal(s.transactions.filter(t=>t.name==='Saved zero').length,2);assert.deepEqual(balances(s),baseline);await csv(approved);assert.deepEqual(await get(),s);
+const duplicateId=await reserve(sourceText),dupReview=await review(duplicateId);assert.equal(dupReview.imported,0);await csv(commit(dupReview));assert.deepEqual(await get(),s);const dupUndo=await csv({action:'revertPreview',id:duplicateId});assert.equal(dupUndo.ownedEntries,0);await csv(undo(dupUndo));assert.deepEqual(await get(),s);
+const owned=s.transactions.find(t=>t.name==='Saved zero');await post(transaction(a.id,'Edited saved zero',{id:owned.id,notes:'Ownership follows edits'}));const reversal=await csv({action:'revertPreview',id:sourceId});assert.equal(reversal.ownedEntries,2);const oldUndo=undo(reversal);await csv(oldUndo);s=await get();assert.ok(!s.transactions.some(t=>t.id===owned.id));assert.deepEqual(balances(s),baseline);await csv(oldUndo);assert.deepEqual(await get(),s);
+const original=await call('/api/csv-imports?id='+sourceId+'&format=csv',undefined,200,owner,'GET',true);assert.equal(hash(Buffer.from(await original.arrayBuffer())),hash(sourceText));
+// Native Sure zero parent/children use the same merge, saved source and permanent reversal cycle.
+const nativeText=[{type:'Account',data:{id:'zero-account',name:'Native memo account',accountable_type:'Depository',subtype:'checking',balance:'100',currency:'USD',status:'active'}},{type:'Transaction',data:{id:'zero-transaction',account_id:'zero-account',date:'2026-01-02',name:'Native zero',amount:'0',currency:'USD',notes:'Native zero note',kind:'standard',split_lines:[{id:'z1',name:'Native label',amount:'0',notes:'Native split note'},{id:'z2',name:'Native other',amount:'0'}]}}].map(x=>JSON.stringify(x)).join('\n'),nativeBytes=Buffer.from(nativeText),ns=(await native({action:'reserve',requestId:crypto.randomUUID(),filename:'zeros.ndjson',byteSize:nativeBytes.length,sha256:hash(nativeBytes),options:{exportDate:'2026-01-31',useInvestmentRates:false}})).source;
+await call('/api/native-sources?id='+ns.id,nativeBytes,200,owner,'PUT');const cat=await native({action:'catalog',id:ns.id}),nr=await native({action:'preview',id:ns.id,expectedConfigurationRevision:cat.source.configurationRevision,accountTargets:[{sourceId:'zero-account',targetId:null}]});
+await native({action:'commit',id:ns.id,expectedConfigurationRevision:nr.source.configurationRevision,expectedRevision:nr.expectedRevision,receipt:nr.receipt,reviewedOn:nr.reviewedOn,confirmation:'MERGE',acknowledgeWarnings:true});
+s=await get();const na=s.accounts.find(a=>a.name==='Native memo account'),nt=s.transactions.find(t=>t.name==='Native zero');assert.equal(nt.amount,0);assert.equal(nt.notes,'Native zero note');assert.equal(accountBalance(na,s,today()),10000);assert.equal(s.splitLines.filter(l=>l.transactionId===nt.id).length,2);assert.ok(s.splitLines.filter(l=>l.transactionId===nt.id).every(l=>l.amount===0));
+let nativeReview=await native({action:'revertPreview',id:ns.id});assert.equal(nativeReview.ownedEntries,1);
+// JSON and original-bearing ZIP restore preserve zero records, split metadata, rules and receipts.
+const archiveBlob=await (await call('/api/statement-files/archive',undefined,200,owner,'GET',true)).blob(),archive=await readBackupArchive(archiveBlob,'sites');assert.equal(JSON.parse(archive.content).version,36);assert.ok(JSON.parse(archive.content).transactions.some(t=>t.amount===0));
+const restore={sourceFormat:'sites',content:archive.content,mode:'empty',includeFiles:true},restoreReview=await call('/api/migration',{action:'preview',...restore},200,target);await call('/api/migration',{action:'commit',...restore,expectedRevision:restoreReview.expectedRevision,receipt:restoreReview.receipt,confirmation:'RESTORE',acknowledgeWarnings:true},200,target);
+await restoreArchiveOriginals(archiveBlob,archive,async(item,bytes)=>{await call('/api/migration/originals?sha256='+item.file.sha256,bytes,200,target,'POST',true,{'Content-Type':item.file.contentType});});
+const restored=await get(target);assert.equal(restored.transactions.length,s.transactions.length);assert.equal(restored.splitLines.length,s.splitLines.length);assert.ok(restored.transactions.every(t=>t.amount===0));assert.deepEqual(balances(restored),balances(s));assert.ok(restored.splitLines.some(l=>l.notes==='Native split note'));assert.equal(restored.transactionReceipts.length,1);assert.equal(restored.rules.length,s.rules.length);
+const recovered=await call('/api/statement-files/'+restored.transactionReceipts[0].fileId,undefined,200,target,'GET',true);assert.equal(hash(Buffer.from(await recovered.arrayBuffer())),hash(receiptBytes));
+const nativeUndo={action:'revertCommit',id:ns.id,expectedRevision:nativeReview.expectedRevision,receipt:nativeReview.receipt,reviewedOn:nativeReview.reviewedOn,confirmation:'REVERT'};await native(nativeUndo);const undone=await get();assert.ok(!undone.transactions.some(t=>t.id===nt.id));assert.ok(!undone.accounts.some(a=>a.id===na.id));assert.ok(!undone.splitLines.some(l=>l.transactionId===nt.id));await native(nativeUndo);assert.deepEqual(await get(),undone);
+const fresh=await native({action:'catalog',id:ns.id}),again=await native({action:'preview',id:ns.id,expectedConfigurationRevision:fresh.source.configurationRevision,accountTargets:[{sourceId:'zero-account',targetId:null}]});await native({action:'commit',id:ns.id,expectedConfigurationRevision:again.source.configurationRevision,expectedRevision:again.expectedRevision,receipt:again.receipt,reviewedOn:again.reviewedOn,confirmation:'MERGE',acknowledgeWarnings:true});s=await get();assert.equal(s.transactions.find(t=>t.name==='Native zero').amount,0);assert.notEqual(s.transactions.find(t=>t.name==='Native zero').id,nt.id);nativeReview=await native({action:'revertPreview',id:ns.id});assert.equal(nativeReview.ownedEntries,1);
+// Widening the ledger must never permit fabricated zero transfer pairs in JSON restore.
+for(const currency of ['USD','JPY']){const bad=JSON.parse(archive.content),ids=bad.accounts.slice(0,2).map(a=>a.id),pair=crypto.randomUUID();bad.accounts.find(a=>a.id===ids[1]).currency=currency;bad.splitLines=[];bad.transactionReceipts=[];bad.accountStatements=[];bad.transactions=ids.map((accountId,i)=>({...nt,id:crypto.randomUUID(),accountId,amount:0,transferId:pair,kind:'funds_movement',reconciledStatus:'unreconciled',reconciledAt:null,reconciledStatementId:null}));await call('/api/migration',{action:'preview',sourceFormat:'sites',content:JSON.stringify(bad),mode:'replace'},400,target);}
+// All 10,000 zero rows count toward limits and revisions, even though cash remains unchanged.
+await post(account('Large zero'),200,largeOwner);const la=(await get(largeOwner)).accounts[0],largeBase='date,name,amount,padding\n'+Array.from({length:10000},(_,i)=>`2026-01-02,Large memo ${i},0,`).join('\n'),largeText=largeBase+'x'.repeat(10485760-Buffer.byteLength(largeBase)),largeId=await reserve(largeText,largeOwner,la.id);r=await review(largeId,largeOwner);assert.equal(r.imported,10000);const last=await review(largeId,largeOwner,9975);assert.equal(last.rows.length,25);assert.equal(last.receipt,r.receipt);assert.equal(last.rows.at(-1).transaction.amount,0);const largeBefore=await get(largeOwner);await csv(commit(r),200,largeOwner);const large=await get(largeOwner);assert.equal(large.transactions.length,10000);assert.equal(large.profile.revision,largeBefore.profile.revision+1);assert.equal(accountBalance(la,large,today()),10000);assert.ok(large.transactions.every(t=>t.amount===0));await csv(commit(r),200,largeOwner);assert.deepEqual(await get(largeOwner),large);
+const largeUndo=await csv({action:'revertPreview',id:largeId,offset:9975},200,largeOwner);assert.equal(largeUndo.ownedEntries,10000);
+const pending=await review(sourceId);s=await get();assert.equal(sql('PRAGMA foreign_key_check').at(-1).results.length,0);
+writeFileSync('outputs/zero-entries-proof.json',JSON.stringify({owner,state:s,zeroEntries:{sourceId,pending,sourceText,oldUndo,nativeId:ns.id,nativeText,nativeReview,balances:balances(s),receiptId:receipt.file.id,receiptSHA256:hash(receiptBytes)},additional:[{owner:target,state:restored},{owner:largeOwner,state:large}],largeZeros:{owner:largeOwner,id:largeId,sourceSHA256:hash(largeText),review:largeUndo}},null,2));
+console.log(`${checks} zero-entry CRUD, splits, CSV/native sources, atomicity, limits and recovery API checks passed`);

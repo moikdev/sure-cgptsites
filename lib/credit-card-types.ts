@@ -1,0 +1,1 @@
+export interface CreditCardTerms {availableCredit:number|null;minimumPayment:number|null;annualFee:number|null;apr:string|null;expirationDate:string|null;statementCloseDay:number|null;dueDay:number|null;}

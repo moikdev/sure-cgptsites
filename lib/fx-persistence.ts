@@ -1,0 +1,5 @@
+import {snake} from './investment-persistence';
+export const fxCollections={exchangeRates:{table:'exchange_rates',fields:['id','ownerId','date','fromCurrency','toCurrency','rate','notes']},transferDetails:{table:'transfer_details',fields:['status','createdAt','updatedAt','id','ownerId','date','destinationDate','fromCurrency','toCurrency','fromAmount','toAmount','rateNumerator','rateDenominator','rateDate','rateSource','sourceFee','destinationFee','requestId','requestFingerprint']},transferFees:{table:'transfer_fees',fields:['id','ownerId','transferId','transactionId','side']}} as const;
+export type FxCollection=keyof typeof fxCollections;
+export const fxColumns=(key:FxCollection)=>fxCollections[key].fields.map(snake),fxSelect=(key:FxCollection)=>fxCollections[key].fields.map(f=>`${snake(f)} AS ${f}`).join(', ');
+export function fxValues(key:FxCollection,input:unknown){const row=input as Record<string,unknown>;return fxCollections[key].fields.map(f=>(row[f]??null) as string|number|null);}

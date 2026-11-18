@@ -1,0 +1,7 @@
+import {snake} from './investment-persistence';
+export const budgetCollections={budgetBooks:{table:'budget_books',fields:['id','ownerId','name','currency','startDay','accountMode','accountIds','sourceKind','sourceReference','legacyCompat']},budgetPeriods:{table:'budget_periods',fields:['id','ownerId','bookId','startDate','endDate','currency','budgetedSpending','expectedIncome','autoTotal']},budgetEnvelopes:{table:'budget_envelopes',fields:['id','ownerId','periodId','categoryId','allocated','rolloverEnabled','importedCarry']}} as const;
+export type BudgetCollection=keyof typeof budgetCollections;
+export function budgetColumns(key:BudgetCollection){return budgetCollections[key].fields.map(snake);}
+export function budgetSelect(key:BudgetCollection){return budgetCollections[key].fields.map(field=>`${snake(field)} AS ${field}`).join(', ');}
+export function budgetValues(key:BudgetCollection,input:unknown):(string|number|null)[]{const row=input as Record<string,unknown>;return budgetCollections[key].fields.map(field=>(field==='accountIds'?JSON.stringify(row[field]??[]):row[field]??null) as string|number|null);}
+export function decodeBudgetRow(key:BudgetCollection,input:unknown){const row=input as Record<string,unknown>;if(key!=='budgetBooks')return row;const accounts=JSON.parse(String(row.accountIds));if(!Array.isArray(accounts))throw new Error('Invalid stored budget account list.');return {...row,accountIds:accounts};}

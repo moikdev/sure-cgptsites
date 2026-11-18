@@ -1,0 +1,14 @@
+import {ApiError,readState,commitMutation} from './repository';import {recurringMaintenanceCommandSchema} from './recurring-maintenance-schema';
+import {planRecurringMaintenance,recurringMaintenancePage} from './recurring-maintenance';import {recurringStateWrites} from './recurring-state-repository';import {validateWorkspace} from './workspace';import {today} from './finance';
+export async function executeRecurringMaintenance(owner:string,input:unknown,revision:number){
+ const parsed=recurringMaintenanceCommandSchema.safeParse(input);if(!parsed.success)return null;const c=parsed.data,state=await readState(owner);if(state.profile?.revision!==revision||c.expectedRevision!==undefined&&c.expectedRevision!==revision)throw new ApiError(409,'Your workspace changed. Review recurring maintenance again.');if(c.asOf>today())throw new ApiError(400,'Choose a recurring review date through today.');if(c.recurringEntryId&&!state.recurringEntries.some(e=>e.id===c.recurringEntryId))throw new ApiError(404,'Recurring schedule not found.');
+ let plan,page;try{plan=planRecurringMaintenance(state,{asOf:c.asOf,mode:c.operation,recurringEntryId:c.recurringEntryId,useAllActive:c.useAllActive,protectThrough:today(),...(c.operation==='pipeline'?{backfill:c.backfill}:{})});page=recurringMaintenancePage(plan,c.section,c.offset);}catch(error){throw new ApiError(400,error instanceof Error?error.message:'Recurring maintenance could not be reviewed.');}
+ const content=JSON.stringify(['recurring-maintenance-v1',owner,revision,plan.options,plan.changes]),receipt=[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(content)))].map(n=>n.toString(16).padStart(2,'0')).join('');
+ let issue:string|null=null;try{validateWorkspace({...plan.next,budgets:[]});}catch(error){issue=error instanceof Error?error.message:'The planned history cannot be saved.';}
+ if(c.mode==='preview')return {...page,expectedRevision:revision,receipt,canCommit:!issue,issue};
+ if(c.expectedRevision!==revision||c.receipt!==receipt)throw new ApiError(409,'Your workspace or recurring options changed. Preview again.');if(issue)throw new ApiError(400,issue);
+ const {changes,statements}=recurringStateWrites(owner,state,plan.next);
+ if(statements.length)await commitMutation(owner,revision,statements,20);
+ return {message:`Saved ${changes.schedulesCreated.length} suggested schedule(s), refreshed ${changes.schedulesUpdated.length} schedule(s) and repaired ${changes.repaired.length} deleted-entry link(s). Materialized ${changes.created.length} occurrence(s), linked ${changes.allocations.length} payment(s), removed ${changes.removed.length} regeneratable/uncovered reminder(s), recorded ${changes.prices.length} price change(s) and repriced ${changes.repriced.length} detected schedule(s). Account entries and balances are unchanged.`};
+}
+

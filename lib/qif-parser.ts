@@ -1,0 +1,80 @@
+import {today,validDate} from './finance.ts';
+import {CSV_DATE_FORMATS,type CSVDateFormat} from './csv-date-formats.ts';
+export const QIF_BYTES=8_000_000,QIF_RECORDS=20000;
+export const QIF_TYPES=['CCard','Bank','Cash','Invst','Oth L','Oth A'] as const;
+export const QIF_BUYS=['Buy','ReinvDiv','Cover'] as const,QIF_SELLS=['Sell','ShtSell'] as const;
+export const QIF_INFLOWS=['Div','IntInc','XIn','CGLong','CGShort','MiscInc'] as const;
+export type QIFDateFormat=Exclude<CSVDateFormat,'dmy-short-year'>;
+export const QIF_DATE_FORMATS=(['mdy-dash','dmy-dot','dmy-dash','ymd','dmy','ymd-slash','mdy','dmy-space','ymd-dot','ymd-compact','dmy-month'] as QIFDateFormat[]).map(key=>CSV_DATE_FORMATS.find(f=>f.value===key)!);
+export interface QIFAccount {name:string;accountType:string|null;description:string|null;}
+export interface QIFSplit {category:string;tags:string[];amount:string;memo:string|null;}
+export interface QIFTransaction {date:string;amount:string;payee:string|null;memo:string|null;category:string;tags:string[];checkNum:string|null;cleared:string|null;split:boolean;splitLines:QIFSplit[];accountName:string|null;accountType:string;line:number;}
+export interface QIFInvestment {date:string;action:string;securityName:string|null;securityTicker:string|null;price:string|null;qty:string|null;amount:string|null;memo:string|null;payee:string|null;category:string;tags:string[];accountName:string|null;accountType:string;line:number;}
+interface RecordData {fields:Map<string,string|null>;splits:{category:string|null;amount?:string|null;memo?:string|null}[];line:number;}
+interface Section {kind:'account'|'type';type:string;start:number;end:number;line:number;}
+const QIF_CODE_PAGES=["\u20ac\u0000\u201a\u0192\u201e\u2026\u2020\u2021\u02c6\u2030\u0160\u2039\u0152\u0000\u017d\u0000\u0000\u2018\u2019\u201c\u201d\u2022\u2013\u2014\u02dc\u2122\u0161\u203a\u0153\u0000\u017e\u0178\u00a0\u00a1\u00a2\u00a3\u00a4\u00a5\u00a6\u00a7\u00a8\u00a9\u00aa\u00ab\u00ac\u00ad\u00ae\u00af\u00b0\u00b1\u00b2\u00b3\u00b4\u00b5\u00b6\u00b7\u00b8\u00b9\u00ba\u00bb\u00bc\u00bd\u00be\u00bf\u00c0\u00c1\u00c2\u00c3\u00c4\u00c5\u00c6\u00c7\u00c8\u00c9\u00ca\u00cb\u00cc\u00cd\u00ce\u00cf\u00d0\u00d1\u00d2\u00d3\u00d4\u00d5\u00d6\u00d7\u00d8\u00d9\u00da\u00db\u00dc\u00dd\u00de\u00df\u00e0\u00e1\u00e2\u00e3\u00e4\u00e5\u00e6\u00e7\u00e8\u00e9\u00ea\u00eb\u00ec\u00ed\u00ee\u00ef\u00f0\u00f1\u00f2\u00f3\u00f4\u00f5\u00f6\u00f7\u00f8\u00f9\u00fa\u00fb\u00fc\u00fd\u00fe\u00ff", "\u20ac\u0000\u201a\u0000\u201e\u2026\u2020\u2021\u0000\u2030\u0160\u2039\u015a\u0164\u017d\u0179\u0000\u2018\u2019\u201c\u201d\u2022\u2013\u2014\u0000\u2122\u0161\u203a\u015b\u0165\u017e\u017a\u00a0\u02c7\u02d8\u0141\u00a4\u0104\u00a6\u00a7\u00a8\u00a9\u015e\u00ab\u00ac\u00ad\u00ae\u017b\u00b0\u00b1\u02db\u0142\u00b4\u00b5\u00b6\u00b7\u00b8\u0105\u015f\u00bb\u013d\u02dd\u013e\u017c\u0154\u00c1\u00c2\u0102\u00c4\u0139\u0106\u00c7\u010c\u00c9\u0118\u00cb\u011a\u00cd\u00ce\u010e\u0110\u0143\u0147\u00d3\u00d4\u0150\u00d6\u00d7\u0158\u016e\u00da\u0170\u00dc\u00dd\u0162\u00df\u0155\u00e1\u00e2\u0103\u00e4\u013a\u0107\u00e7\u010d\u00e9\u0119\u00eb\u011b\u00ed\u00ee\u010f\u0111\u0144\u0148\u00f3\u00f4\u0151\u00f6\u00f7\u0159\u016f\u00fa\u0171\u00fc\u00fd\u0163\u02d9"];
+function codePage(bytes:Uint8Array,page:0|1,omit?:ReadonlySet<number>){const chunks:string[]=[];for(let i=0;i<bytes.length;i+=16384){const chars:string[]=[];for(const b of bytes.subarray(i,i+16384))if(!omit?.has(b))chars.push(b<128?String.fromCharCode(b):QIF_CODE_PAGES[page][b-128]);chunks.push(chars.join(''));}return chunks.join('');}
+/** WHATWG decoders map undefined code-page slots to controls; Ruby rejects those slots. */
+export function decodeQIF(bytes:Uint8Array){
+ if(!bytes.length||bytes.length>QIF_BYTES)throw new Error('Choose a QIF original between 1 byte and 8 MB.');
+ let content:string,encoding:'UTF-8'|'Windows-1252'|'Windows-1250'|'Windows-1252 (undefined bytes omitted)'='UTF-8';
+ try{content=new TextDecoder('utf-8',{fatal:true,ignoreBOM:true}).decode(bytes);}catch{
+  const undefined1252=new Set([129,141,143,144,157]),undefined1250=new Set([129,131,136,144,152]);
+  if(!bytes.some(b=>undefined1252.has(b))){encoding='Windows-1252';content=codePage(bytes,0);}
+  else if(!bytes.some(b=>undefined1250.has(b))){encoding='Windows-1250';content=codePage(bytes,1);}
+  else{encoding='Windows-1252 (undefined bytes omitted)';content=codePage(bytes,0,undefined1252);}
+ }
+ if(content.includes('\0'))throw new Error('Choose a QIF file without NUL bytes.');if(new TextEncoder().encode(content).length>QIF_BYTES)throw new Error('Decoded QIF text exceeds 8 MB.');return {content,encoding};
+}
+export function normalizeQIFDate(input:string|null|undefined,asOf=today()){
+ if(!input?.trim())return null;let text=input.trim();if(text.includes("'")){const separator=/[/.\-]/.exec(text)?.[0]??'/';text=text.replaceAll("'",separator);}
+ text=/[A-Za-z]/.test(text)?text.replace(/\s+/g,' ').trim():text.replace(/\s+/g,'');
+ if(!/\d{4}/.test(text)){const m=/^(.+[/.\- ])(\d{2})$/.exec(text);if(m){let year=2000+Number(m[2]);if(year>Number(asOf.slice(0,4)))year-=100;text=m[1]+year;}}
+ return text;
+}
+/** Match the offered Family::DATE_FORMATS and Ruby strptime's numeric prefix behavior. */
+export function qifDate(input:string|null|undefined,format:QIFDateFormat='mdy',asOf=today()):string|null{
+ const text=normalizeQIFDate(input,asOf);if(!text||text.length>256)return null;let m:RegExpExecArray|null=null,year='',month='',day='';
+ if(format==='ymd-compact'){m=/^(\d{4})(\d{2})(\d{2})/.exec(text);if(m)[,year,month,day]=m;}
+ else if(format==='ymd'||format==='ymd-slash'||format==='ymd-dot'){const separator=format==='ymd'?'-':format==='ymd-slash'?'/':'\\.';m=new RegExp(`^(\\d{1,4})${separator}(\\d{1,2})${separator}(\\d{1,2})`).exec(text);if(m)[,year,month,day]=m;}
+ else if(format==='dmy-month'){m=/^(\d{1,2}) +([A-Za-z]+) +(\d{1,4})/.exec(text);if(m){day=m[1];year=m[3];const index=['january','february','march','april','may','june','july','august','september','october','november','december'].findIndex(n=>n===m![2].toLowerCase()||n.slice(0,3)===m![2].toLowerCase());if(index>=0)month=String(index+1);}}
+ else{const separator=format==='dmy-dot'?'\\.':format==='mdy-dash'||format==='dmy-dash'?'-':'/';m=new RegExp(`^(\\d{1,2})${separator}(\\d{1,2})${separator}(\\d{1,4})`).exec(text);if(m){const mdy=format==='mdy'||format==='mdy-dash';month=m[mdy?1:2];day=m[mdy?2:1];year=m[3];}}
+ if(!year||!month||!day)return null;const iso=`${year.padStart(4,'0')}-${month.padStart(2,'0')}-${day.padStart(2,'0')}`;const value=new Date(iso+'T00:00:00.000Z');return Number.isFinite(value.getTime())&&value.toISOString().slice(0,10)===iso?iso:null;
+}
+export function qifAmount(input:string|null|undefined){if(!input?.trim())return null;const text=input.replaceAll(',','').trim();return /^-?\d+\.?\d*$/.test(text)?text:null;}
+export function qifCategoryTags(input:string|null|undefined):{category:string;tags:string[]}{if(!input||input.startsWith('[')||/^--split--$/i.test(input.trim()))return {category:'',tags:[]};const index=input.indexOf('/');return index<0?{category:input.trim(),tags:[]}:{category:input.slice(0,index).trim(),tags:input.slice(index+1).split(':').map(s=>s.trim()).filter(Boolean)};}
+function* lines(text:string,start=0,end=text.length,startLine=1){let line=startLine;while(start<end){const pos=text.indexOf('\n',start),next=pos<0||pos>=end?end:pos;yield {text:text.slice(start,next),start,end:next<end?next+1:next,line};start=next+1;line++;}}
+function records(text:string,start:number,end:number,startLine:number){const result:RecordData[]=[],fresh=(line:number):RecordData=>({fields:new Map(),splits:[],line});let current=fresh(startLine);
+ for(const row of lines(text,start,end,startLine)){const line=row.text;if(!line.trim())continue;if(line==='^'){if(current.fields.size)result.push(current);current=fresh(row.line+1);if(result.length>QIF_RECORDS)throw new Error('QIF contains more than 20,000 records.');continue;}
+  const code=line[0],value=line.slice(1).trim()||null;if(!current.fields.size)current.line=row.line;
+  if(code==='S'){if(current.splits.length>=100)throw new Error(`Line ${row.line}: a transaction has more than 100 split lines.`);current.splits.push({category:value});}
+  else if(code==='$'&&current.splits.length)current.splits.at(-1)!.amount=value;
+  else if(code==='E'&&current.splits.length)current.splits.at(-1)!.memo=value;
+  current.fields.set(code,value);
+ }if(current.fields.size)result.push(current);return result;
+}
+function account(record:RecordData):QIFAccount|null{const name=record.fields.get('N');return name?{name,accountType:record.fields.get('T')??null,description:record.fields.get('D')??null}:null;}
+export function parseQIF(content:string,options:{dateFormat?:QIFDateFormat;asOf?:string}={}){
+ if(!content.trim()||new TextEncoder().encode(content).length>QIF_BYTES||content.includes('\0')||/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/.test(content))throw new Error('Choose QIF text up to 8 MB without NUL or invalid Unicode.');
+ if(!content.includes('!Type:'))throw new Error('The file does not contain a QIF !Type: section.');const text=content.replace(/^\uFEFF/,'').replace(/\r\n?/g,'\n'),asOf=options.asOf??today();if(!validDate(asOf))throw new Error('Choose a valid QIF review day.');
+ const sections:Section[]=[];let lineCount=0;for(const row of lines(text)){if(++lineCount>500000)throw new Error('QIF contains more than 500,000 lines.');if(row.text.length>65536)throw new Error(`Line ${row.line}: QIF fields must fit 65,536 characters.`);const a=/^!Account/i.test(row.text),type=/^!Type:(.*)/i.exec(row.text);if(!a&&!type)continue;if(sections.length)sections.at(-1)!.end=row.start;sections.push({kind:a?'account':'type',type:a?'':type![1].trim(),start:row.end,end:text.length,line:row.line+1});if(sections.length>QIF_RECORDS)throw new Error('QIF contains more than 20,000 sections.');}
+ const sectionRecords=new Map<Section,RecordData[]>();let count=0;for(const section of sections){const parsed=records(text,section.start,section.end,section.line);count+=parsed.length;if(count>QIF_RECORDS)throw new Error('QIF contains more than 20,000 records.');sectionRecords.set(section,parsed);}
+ const extract=(prefix:string,all=false)=>{const found=sections.filter(s=>s.kind==='type'&&s.type.toLowerCase().startsWith(prefix.toLowerCase()));return (all?found:found.slice(0,1)).flatMap(s=>{const next=sections.find(t=>t.kind==='type'&&t.start>s.start);return records(text,s.start,next?text.lastIndexOf('\n',next.start-2)+1:text.length,s.line);});};
+ // For metadata the Ruby extractor stops at a Type header, not an intervening Account header.
+ const accounts=sections.filter(s=>s.kind==='account').flatMap(s=>sectionRecords.get(s)!.map(account).filter((a):a is QIFAccount=>a!==null)),categories=extract('Cat').flatMap(r=>{const name=r.fields.get('N');return name?[{name,description:r.fields.get('D')??null,income:r.fields.has('I')&&!r.fields.has('E')}]:[];}),tags=extract('Tag').flatMap(r=>{const name=r.fields.get('N');return name?[{name,description:r.fields.get('D')??null}]:[];}),securities=extract('Security',true).flatMap(r=>{const name=r.fields.get('N'),ticker=r.fields.get('S');return name&&ticker?[{name,ticker,securityType:r.fields.get('T')??null}]:[];});
+ const transactions:QIFTransaction[]=[],investments:QIFInvestment[]=[],openings:{accountName:string|null;accountType:string;date:string;amount:string;line:number}[]=[],skipped:{line:number;type:string;reason:string}[]=[],diagnostics:{line:number;type:string;reason:string}[]=[],types:Record<string,number>=Object.create(null),rawDates:string[]=[],transactionSections:{section:Section;account:QIFAccount|null}[]=[];let currentAccount:QIFAccount|null=null;
+ for(const section of sections){if(section.kind==='account'){currentAccount=sectionRecords.get(section)!.map(account).find(a=>a!==null)??null;continue;}types[section.type]=(types[section.type]??0)+sectionRecords.get(section)!.length;if((QIF_TYPES as readonly string[]).includes(section.type))transactionSections.push({section,account:currentAccount});}
+ for(const type of QIF_TYPES){const section=sections.find(s=>s.kind==='type'&&s.type.toLowerCase().startsWith(type.toLowerCase()));if(!section)continue;const next=sections.find(s=>s.kind==='type'&&s.start>section.start),end=next?text.lastIndexOf('\n',next.start-2)+1:text.length;for(const row of lines(text,section.start,end,section.line))if(/^D.+/i.test(row.text)){const normalized=normalizeQIFDate(row.text.slice(1),asOf);if(normalized)rawDates.push(normalized);}}
+ const samples=[...new Set(rawDates)].slice(0,50),scored=QIF_DATE_FORMATS.map(f=>{const dates=samples.map(s=>qifDate(s,f.value as QIFDateFormat,asOf)).filter((d):d is string=>!!d);return {format:f.value as QIFDateFormat,parsed:dates.length,reasonable:dates.filter(d=>d>='1970-01-01'&&d<=`${Number(asOf.slice(0,4))+5}-${asOf.slice(5)==='02-29'?'02-28':asOf.slice(5)}`).length};}),ranked=[...scored].sort((a,b)=>b.parsed-a.parsed||b.reasonable-a.reasonable),detected=ranked[0]?.parsed?ranked[0].format:'mdy',dateFormat=options.dateFormat??detected;
+ if(!QIF_DATE_FORMATS.some(f=>f.value===dateFormat))throw new Error('Choose a supported QIF date format.');
+ const tickerByName=new Map(securities.map(s=>[s.name,s.ticker]));
+ for(const {section,account:a} of transactionSections){const rows=sectionRecords.get(section)!,accountName=a?.name??null,accountType=a?.accountType||section.type,opening=rows.find(r=>r.fields.get('P')==='Opening Balance');if(opening){const date=qifDate(opening.fields.get('D'),dateFormat,asOf),amount=qifAmount(opening.fields.get('T')||opening.fields.get('U'));if(date&&amount)openings.push({accountName,accountType:section.type,date,amount,line:opening.line});else diagnostics.push({line:opening.line,type:section.type,reason:!date?'The opening balance definition has an invalid date and is not applied.':'The opening balance definition has an invalid amount and is not applied.'});for(const extra of rows.filter(r=>r.fields.get('P')==='Opening Balance').slice(1))diagnostics.push({line:extra.line,type:section.type,reason:'Only the first opening balance definition in this section is used. Additional definitions are retained in the original.'});}
+  for(const r of rows){const f=r.fields;if(section.type!=='Invst'&&f.get('P')==='Opening Balance')continue;const date=qifDate(f.get('D'),dateFormat,asOf),amount=qifAmount(f.get('T')||f.get('U')),base={accountName,accountType,line:r.line};
+   if(section.type==='Invst'){const action=f.get('N');if(!action||!date){skipped.push({line:r.line,type:section.type,reason:!action?'Missing investment action':'Missing or invalid date'});continue;}const securityName=f.get('Y')??null;investments.push({...base,date,action,securityName,securityTicker:securityName?(tickerByName.get(securityName)??securityName):null,price:qifAmount(f.get('I')),qty:qifAmount(f.get('Q')),amount,memo:f.get('M')??null,payee:f.get('P')??null,...qifCategoryTags(f.get('L'))});}
+   else{if(!date||amount===null){skipped.push({line:r.line,type:section.type,reason:!date?'Missing or invalid date':'Missing or invalid amount'});continue;}const splitLines=r.splits.flatMap(s=>{const amount=qifAmount(s.amount);return amount===null?[]:[{...qifCategoryTags(s.category),amount,memo:s.memo??null}];});transactions.push({...base,date,amount,payee:f.get('P')??null,memo:f.get('M')??null,...qifCategoryTags(f.get('L')),checkNum:f.get('N')??null,cleared:f.get('C')??null,split:r.splits.length>0,splitLines});}
+  }
+ }
+ const metadata=new Set(['Tag','Cat','Security','Prices']),unsupported=Object.entries(types).filter(([type])=>!(QIF_TYPES as readonly string[]).includes(type)&&!metadata.has(type)).map(([type,records])=>({type,records}));
+ return {accounts,categories,tags,securities,transactions,investments,openings,skipped,diagnostics,unsupported,types,dateFormat,detectedDateFormat:detected as QIFDateFormat,dateCandidates:scored,rawDates,recordCount:count,accountType:sections.filter(s=>s.kind==='type').map(s=>s.type).find(t=>!metadata.has(t))??null};
+}
+export type ParsedQIF=ReturnType<typeof parseQIF>;

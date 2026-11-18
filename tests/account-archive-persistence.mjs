@@ -1,0 +1,6 @@
+import {localFetch as fetch} from './local-http.mjs';import assert from 'node:assert/strict';import {readFileSync} from 'node:fs';import {createHash} from 'node:crypto';
+const p=JSON.parse(readFileSync('outputs/account-archive-proof.json','utf8')),origin='http://127.0.0.1:8799';async function get(path,user,raw=false){const r=await fetch(origin+path,{headers:{'oai-authenticated-user-id':user,'oai-authenticated-user-email':user+'@example.test'}});assert.equal(r.status,200);return raw?Buffer.from(await r.arrayBuffer()).toString('utf8'):r.json();}
+for(const item of [{owner:p.owner,state:p.state},...p.additional])assert.deepEqual(await get('/api/finance',item.owner),item.state);
+for(const item of [p,p.large])assert.deepEqual(await get('/api/net-worth-report?'+new URLSearchParams(item.options),item.owner),item.report);
+assert.deepEqual(await get('/api/net-worth-report?'+new URLSearchParams({...p.large.options,...p.large.lastOptions}),p.large.owner),p.large.last);const csv=await get('/api/net-worth-report?'+new URLSearchParams({...p.large.options,format:'snapshot'}),p.large.owner,true);assert.equal(createHash('sha256').update(csv).digest('hex'),p.large.snapshotSHA256);
+console.log('PASS fresh Worker archive dates, unknown legacy metadata, native/saved-source/recovery graphs, 500-account historical reports/final pages and complete snapshot CSV');

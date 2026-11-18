@@ -1,0 +1,4 @@
+import {localFetch as fetch} from './local-http.mjs';import assert from 'node:assert/strict';import {readFileSync} from 'node:fs';
+const p=JSON.parse(readFileSync('outputs/budget-copy-proof.json','utf8')),origin='http://127.0.0.1:8799';
+for(const [user,state] of [[p.owner,p.state],[p.other,p.otherState]]){const r=await fetch(origin+'/api/finance',{headers:{'oai-authenticated-user-id':user,'oai-authenticated-user-email':user+'@example.test'}});assert.equal(r.status,200);assert.deepEqual(await r.json(),state);}
+const r=await fetch(origin+'/api/budget-copy',{method:'POST',headers:{Origin:origin,'Content-Type':'application/json','oai-authenticated-user-id':p.owner,'oai-authenticated-user-email':p.owner+'@example.test'},body:JSON.stringify({action:'preview',...p.pendingFields})});assert.equal(r.status,200);assert.deepEqual(await r.json(),p.pending);console.log('PASS fresh-Worker complete budget-copy finance, owner isolation and pending review');

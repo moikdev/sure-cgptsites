@@ -1,0 +1,7 @@
+import {recurringValues} from './ledger-persistence.ts';
+import type {FinanceState} from './finance.ts';
+export function recurringStateChanges(before:FinanceState,after:FinanceState){
+ const afterEntryIds=new Set(after.recurringEntries.map(e=>e.id));
+ const occurrences=new Map(before.recurringOccurrences.map(o=>[o.id,o])),remaining=new Set(after.recurringOccurrences.map(o=>o.id)),allocations=new Map(before.recurringAllocations.map(a=>[a.id,a])),prices=new Set(before.recurringPriceChanges.map(p=>p.id)),entries=new Map(before.recurringEntries.map(e=>[e.id,e]));
+ return {schedulesDeleted:before.recurringEntries.filter(e=>!afterEntryIds.has(e.id)),created:after.recurringOccurrences.filter(o=>!occurrences.has(o.id)),updated:after.recurringOccurrences.filter(o=>occurrences.has(o.id)&&JSON.stringify(o)!==JSON.stringify(occurrences.get(o.id))),removed:before.recurringOccurrences.filter(o=>!remaining.has(o.id)),allocations:after.recurringAllocations.filter(a=>!allocations.has(a.id)),prices:after.recurringPriceChanges.filter(p=>!prices.has(p.id)),repriced:after.recurringEntries.filter(e=>entries.has(e.id)&&e.amount!==entries.get(e.id)!.amount),schedulesCreated:after.recurringEntries.filter(e=>!entries.has(e.id)),schedulesUpdated:after.recurringEntries.filter(e=>entries.has(e.id)&&JSON.stringify(recurringValues(e))!==JSON.stringify(recurringValues(entries.get(e.id)!))),repaired:after.recurringAllocations.filter(a=>allocations.has(a.id)&&JSON.stringify(a)!==JSON.stringify(allocations.get(a.id)))};
+}

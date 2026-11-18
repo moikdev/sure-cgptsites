@@ -1,0 +1,1 @@
+ALTER TABLE `recurring_entries` ADD `starts_on` text DEFAULT '1900-01-01' NOT NULL;

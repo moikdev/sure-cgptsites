@@ -1,0 +1,510 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1794643919158,
+      "tag": "0000_warm_living_tribunal",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1794644979391,
+      "tag": "0001_soft_chamber",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1794644991887,
+      "tag": "0002_workspace_revision_guard",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1794645594258,
+      "tag": "0003_aromatic_psynapse",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1794646120789,
+      "tag": "0004_workspace_revision_tracking",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1794647470158,
+      "tag": "0005_foamy_inertia",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1794647611209,
+      "tag": "0006_fair_black_panther",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1794647829189,
+      "tag": "0007_gray_tusk",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1794648466514,
+      "tag": "0008_foamy_young_avengers",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1794648467288,
+      "tag": "0009_ledger_revision_tracking",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1794649644025,
+      "tag": "0010_military_warpath",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1794649856613,
+      "tag": "0011_investment_revision_tracking",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1794650047382,
+      "tag": "0012_supreme_magma",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "6",
+      "when": 1794652120757,
+      "tag": "0013_regular_the_fury",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "6",
+      "when": 1794652388302,
+      "tag": "0014_budget_upgrade_tracking",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "6",
+      "when": 1794654942246,
+      "tag": "0015_budget_delete_guards",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "6",
+      "when": 1794655491041,
+      "tag": "0016_workable_hemingway",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "6",
+      "when": 1794656613631,
+      "tag": "0017_boring_strong_guy",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "6",
+      "when": 1794657213462,
+      "tag": "0018_preserve_original_rule_source",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "6",
+      "when": 1794658389496,
+      "tag": "0019_little_the_enforcers",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "6",
+      "when": 1794660576179,
+      "tag": "0020_little_white_tiger",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "6",
+      "when": 1794662516176,
+      "tag": "0021_loose_loki",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "6",
+      "when": 1794663194482,
+      "tag": "0022_loving_rhodey",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "6",
+      "when": 1794664848515,
+      "tag": "0023_puzzling_stark_industries",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "6",
+      "when": 1794667763682,
+      "tag": "0024_lowly_micromax",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "6",
+      "when": 1794669584005,
+      "tag": "0025_goofy_vampiro",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "6",
+      "when": 1794672519773,
+      "tag": "0026_heavy_dust",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "6",
+      "when": 1794674702097,
+      "tag": "0027_round_snowbird",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "6",
+      "when": 1794675923406,
+      "tag": "0028_round_stone_men",
+      "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "6",
+      "when": 1794676927805,
+      "tag": "0029_statement_review_epochs",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "6",
+      "when": 1794679044718,
+      "tag": "0030_damp_dragon_lord",
+      "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "6",
+      "when": 1794681520748,
+      "tag": "0031_funny_felicia_hardy",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "6",
+      "when": 1794684802643,
+      "tag": "0032_left_thanos",
+      "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "6",
+      "when": 1794688493992,
+      "tag": "0033_flowery_slapstick",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "6",
+      "when": 1794689952413,
+      "tag": "0034_first_cargill",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "6",
+      "when": 1794691446649,
+      "tag": "0035_sloppy_earthquake",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "6",
+      "when": 1794706274440,
+      "tag": "0036_yellow_zaladane",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "6",
+      "when": 1794710177865,
+      "tag": "0037_lyrical_gauntlet",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "6",
+      "when": 1794715678853,
+      "tag": "0038_superb_iceman",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "6",
+      "when": 1794718761820,
+      "tag": "0039_transfer_classification",
+      "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "6",
+      "when": 1794722038459,
+      "tag": "0040_pending_transfers",
+      "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "6",
+      "when": 1794723601419,
+      "tag": "0041_auto_transfer_settings",
+      "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "6",
+      "when": 1794726495527,
+      "tag": "0042_investment_transfer_repair",
+      "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "6",
+      "when": 1794735494400,
+      "tag": "0043_investment_reporting",
+      "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "6",
+      "when": 1794739703900,
+      "tag": "0044_csv_import_templates",
+      "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "6",
+      "when": 1794741067340,
+      "tag": "0045_staged_csv_imports",
+      "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "6",
+      "when": 1794743164358,
+      "tag": "0046_csv_import_reversal",
+      "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "6",
+      "when": 1794746783444,
+      "tag": "0047_csv_account_mapping",
+      "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "6",
+      "when": 1794748666017,
+      "tag": "0048_csv_created_accounts",
+      "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "6",
+      "when": 1794752631266,
+      "tag": "0049_csv_entity_mapping",
+      "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "6",
+      "when": 1794755268206,
+      "tag": "0050_merchant_csv_imports",
+      "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "6",
+      "when": 1794756700541,
+      "tag": "0051_category_csv_icons",
+      "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "6",
+      "when": 1794759637127,
+      "tag": "0052_native_merge_commits",
+      "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "6",
+      "when": 1794763327867,
+      "tag": "0053_investment_csv_templates",
+      "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "6",
+      "when": 1794764962618,
+      "tag": "0054_account_csv_imports",
+      "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "6",
+      "when": 1794768063819,
+      "tag": "0055_rule_csv_imports",
+      "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "6",
+      "when": 1794771938543,
+      "tag": "0056_staged_trade_csv",
+      "breakpoints": true
+    },
+    {
+      "idx": 57,
+      "version": "6",
+      "when": 1794777580057,
+      "tag": "0057_saved_native_sources",
+      "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "6",
+      "when": 1794781214456,
+      "tag": "0058_native_import_reversal",
+      "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "6",
+      "when": 1794786424324,
+      "tag": "0059_zero_value_entries",
+      "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "6",
+      "when": 1794790360664,
+      "tag": "0060_qif_imports",
+      "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "6",
+      "when": 1794814967146,
+      "tag": "0061_account_archive_dates",
+      "breakpoints": true
+    },
+    {
+      "idx": 62,
+      "version": "6",
+      "when": 1794817820237,
+      "tag": "0062_account_details",
+      "breakpoints": true
+    },
+    {
+      "idx": 63,
+      "version": "6",
+      "when": 1794821715423,
+      "tag": "0063_credit_card_terms",
+      "breakpoints": true
+    },
+    {
+      "idx": 64,
+      "version": "6",
+      "when": 1794824504545,
+      "tag": "0064_manual_asset_details",
+      "breakpoints": true
+    },
+    {
+      "idx": 65,
+      "version": "6",
+      "when": 1794832003274,
+      "tag": "0065_trade_activity_labels",
+      "breakpoints": true
+    },
+    {
+      "idx": 66,
+      "version": "6",
+      "when": 1794834865939,
+      "tag": "0066_merchant_merge",
+      "breakpoints": true
+    },
+    {
+      "idx": 67,
+      "version": "6",
+      "when": 1794837600000,
+      "tag": "0067_category_merge",
+      "breakpoints": true
+    },
+    {
+      "idx": 68,
+      "version": "6",
+      "when": 1794840000000,
+      "tag": "0068_workbook_sources",
+      "breakpoints": true
+    },
+    {
+      "idx": 69,
+      "version": "6",
+      "when": 1794850296853,
+      "tag": "0069_fx_feed_imports",
+      "breakpoints": true
+    },
+    {
+      "idx": 70,
+      "version": "6",
+      "when": 1794852534113,
+      "tag": "0070_price_feed_imports",
+      "breakpoints": true
+    },
+    {
+      "idx": 71,
+      "version": "6",
+      "when": 1795001149363,
+      "tag": "0071_split_reconciliation",
+      "breakpoints": true
+    }
+  ]
+}

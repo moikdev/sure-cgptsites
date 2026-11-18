@@ -1,0 +1,3 @@
+import {z} from 'zod';import {validDate} from './finance.ts';
+export const investmentTransferRepairSchema=z.object({action:z.literal('investmentTransferRepair'),mode:z.enum(['preview','commit']),destinationAccountId:z.string().uuid().optional(),offset:z.number().int().safe().nonnegative().max(20000).default(0),effectOffset:z.number().int().safe().nonnegative().max(40000).default(0),expectedRevision:z.number().int().safe().nonnegative().optional(),receipt:z.string().regex(/^[0-9a-f]{64}$/).optional(),reviewedOn:z.string().refine(validDate).optional()}).strict();
+export const investmentTransferRepairCommands=[investmentTransferRepairSchema] as const;

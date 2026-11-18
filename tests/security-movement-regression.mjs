@@ -1,0 +1,2 @@
+import {localFetch} from './local-http.mjs';const original=globalThis.fetch;globalThis.fetch=localFetch;
+try{for(const file of ['api','migration','portfolio','investment-fx','native-fx','market-fx','portfolio-flows','portfolio-performance','portfolio-return','investment-reporting','trade-csv','investment-account-mapping','investment-csv-template','native-merge-graphs','scheduled-projection']){await import('./'+file+'.integration.mjs');console.log('PASS security-movement regression '+file);}}finally{globalThis.fetch=original;}

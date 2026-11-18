@@ -1,0 +1,2 @@
+import {database} from './repository';import type {CreditCardTerms} from './credit-card-types';
+export function cardTermsStatements(owner:string,id:string,terms:CreditCardTerms|null|undefined){return [terms?database().prepare('INSERT INTO credit_card_terms(owner_id,account_id,terms_json) VALUES(?,?,?) ON CONFLICT(owner_id,account_id) DO UPDATE SET terms_json=excluded.terms_json').bind(owner,id,JSON.stringify(terms)):database().prepare('DELETE FROM credit_card_terms WHERE owner_id=? AND account_id=?').bind(owner,id)];}

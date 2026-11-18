@@ -1,0 +1,23 @@
+import {type FinanceState,type RecurringEntry,type Currency,today} from './finance.ts';
+import {addDays} from './recurring.ts';
+import {materialPriceChange} from './recurring-prices.ts';
+export interface RecurringNotice {id:string;kind:'trial'|'renewal'|'price';recurringEntryId:string;name:string;date:string;urgent:boolean;currency:Currency;previousAmount?:number;newAmount?:number;percentChange?:number;}
+export function recurringLifecycleState(entry:RecurringEntry,asOf=today()){
+ return {trialEndsOn:entry.trialEndsOn&&entry.trialEndsOn>=asOf?entry.trialEndsOn:null,renewsOn:entry.renewsOn&&entry.renewsOn>=asOf?entry.renewsOn:null,cancelledOn:entry.cancelledOn??null,cancelledStillScheduled:!!entry.cancelledOn&&entry.status==='active'};
+}
+export function recurringNotices(state:FinanceState,asOf=today(),currency?:Currency):RecurringNotice[]{
+ const payable=new Map(state.recurringEntries.filter(e=>e.status==='active'&&e.amount<0&&(!currency||e.currency===currency)&&(!e.destinationAccountId||state.accounts.some(a=>a.id===e.destinationAccountId&&['credit','loan'].includes(a.type)))).map(e=>[e.id,e]));
+ const rows:RecurringNotice[]=[],end=addDays(asOf,14),urgentEnd=addDays(asOf,3),oldest=addDays(asOf,-30);
+ for(const entry of payable.values())for(const [key,kind] of [['trialEndsOn','trial'],['renewsOn','renewal']] as const){const date=entry[key];if(date&&date>=asOf&&date<=end)rows.push({id:`${kind}:${entry.id}`,kind,recurringEntryId:entry.id,name:entry.name,date,urgent:kind==='trial'&&date<=urgentEnd,currency:entry.currency});}
+ for(const change of state.recurringPriceChanges){const entry=payable.get(change.recurringEntryId);if(!entry||change.effectiveOn<oldest)continue;const before=BigInt(change.previousAmount),delta=BigInt(change.newAmount)-before;const percent=before>0n?Number((2n*(delta<0n?-delta:delta)*100n+before)/(2n*before))*(delta<0n?-1:1):0;rows.push({id:`price:${change.id}`,kind:'price',recurringEntryId:entry.id,name:entry.name,date:change.effectiveOn,urgent:materialPriceChange(change.previousAmount,change.newAmount),currency:change.currency,previousAmount:change.previousAmount,newAmount:change.newAmount,percentChange:percent});}
+ return rows.sort((a,b)=>Number(b.urgent)-Number(a.urgent)||Math.abs(Date.parse(a.date)-Date.parse(asOf))-Math.abs(Date.parse(b.date)-Date.parse(asOf))||(['trial','renewal','price'].indexOf(a.kind)-['trial','renewal','price'].indexOf(b.kind))||a.id.localeCompare(b.id));
+}
+const gcd=(a:bigint,b:bigint):bigint=>b?gcd(b,a%b):a;
+function plus(a:[bigint,bigint],b:[bigint,bigint]):[bigint,bigint]{const g=gcd(a[1],b[1]),n=a[0]*(b[1]/g)+b[0]*(a[1]/g),d=a[1]*(b[1]/g),r=gcd(n,d);return [n/r,d/r];}
+export function subscriptionCommitments(state:FinanceState,currency?:Currency){
+ const groups=new Map<Currency,{count:number;annual:[bigint,bigint]}>();
+ for(const entry of state.recurringEntries){if(entry.status!=='active'||entry.billType!=='subscription'||currency&&entry.currency!==currency)continue;const group=groups.get(entry.currency)??{count:0,annual:[0n,1n] as [bigint,bigint]};group.count++;for(const rule of entry.rules.length?entry.rules:[{frequency:'monthly',interval:1}]){const ratio:[bigint,bigint]=rule.frequency==='weekly'?[1461n,28n*BigInt(rule.interval)]:rule.frequency==='monthly'?[12n,BigInt(rule.interval)]:[1n,BigInt(rule.interval)];group.annual=plus(group.annual,[BigInt(Math.abs(entry.amount))*ratio[0],ratio[1]]);}groups.set(entry.currency,group);}
+ return [...groups.entries()].sort(([a],[b])=>a.localeCompare(b)).map(([currency,{count,annual:[n,d]}])=>{const yearly=(2n*n+d)/(2n*d),monthly=(2n*n+12n*d)/(24n*d);return yearly>BigInt(Number.MAX_SAFE_INTEGER)?{currency,count,monthly:null,annual:null,issue:'The normalized commitment exceeds the supported total range.'}:{currency,count,monthly:Number(monthly),annual:Number(yearly),issue:null};});
+}
+export function installmentProgress(state:FinanceState,entry:RecurringEntry){return entry.billType==='installment'&&entry.endAfterCount?{paid:state.recurringOccurrences.filter(o=>o.recurringEntryId===entry.id&&o.status==='paid').length,total:entry.endAfterCount}:null;}
+export function recurringLifecycleReport(state:FinanceState,asOf=today(),offset=0,currency?:Currency){const notices=recurringNotices(state,asOf,currency);return {asOf,revision:state.profile?.revision??0,offset,limit:50,total:notices.length,notices:notices.slice(offset,offset+50),commitments:subscriptionCommitments(state,currency),cancellationWarnings:state.recurringEntries.filter(e=>e.cancelledOn&&e.status==='active'&&(!currency||e.currency===currency)).map(e=>({recurringEntryId:e.id,name:e.name,cancelledOn:e.cancelledOn!}))};}

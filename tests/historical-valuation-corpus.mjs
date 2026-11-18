@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict';import {readFileSync,writeFileSync} from 'node:fs';import {accountBalance,today,validDate} from '../lib/finance.ts';import {investmentAccountBalance} from '../lib/portfolio.ts';import {createHistoricalValuationReader} from '../lib/historical-valuation.ts';
+const files=[...readFileSync('tests/persistence.mjs','utf8').split(']) {')[0].matchAll(/['"](outputs\/[^'"]+\.json)['"]/g)].map(m=>m[1]);let snapshots=0,accounts=0,checks=0,expectedErrors=0,skipped=0;
+for(const file of files){const p=JSON.parse(readFileSync(file,'utf8'));for(const s of [p.state,p.otherState,...(p.additional??[]).map(x=>x.state)].filter(Boolean)){
+ const size=['accounts','transactions','valuations','trades','holdingSnapshots','investmentCashBalances','securityPrices','securitySplits'].reduce((n,key)=>n+(s[key]?.length??0),0);if(size>800){skipped++;continue;}const reader=createHistoricalValuationReader(s),before=structuredClone(s);snapshots++;
+ for(const a of s.accounts){accounts++;const dates=[...new Set([a.openingDate,today(),...['transactions','valuations','trades','holdingSnapshots','investmentCashBalances'].flatMap(key=>(s[key]??[]).filter(x=>x.accountId===a.id).map(x=>x.date)).filter(d=>validDate(d)&&d<=today()).sort().filter((_,i,all)=>i===0||i===all.length-1)])].filter(d=>validDate(d)&&d<=today());
+ for(const date of dates){let expected,error;try{expected=['investment','crypto'].includes(a.type)?investmentAccountBalance(a,s,date):{total:accountBalance(a,s,date)};}catch(e){error=e;}
+ if(error){assert.throws(()=>reader.read(a.id,date),e=>e.message===error.message,`${file} ${a.name} ${date}`);expectedErrors++;}else{const actual=reader.read(a.id,date);for(const key of Object.keys(expected))assert.equal(actual[key],expected[key],`${file} ${a.name} ${date} ${key}`);}checks++;}
+ }assert.deepEqual(s,before);
+}}
+const result={snapshots,accounts,dateChecks:checks,expectedErrors,skippedOversizedSnapshots:skipped,maximumRecordsPerSnapshot:800};writeFileSync('outputs/worth-reader-corpus.json',JSON.stringify(result,null,2));console.log('PASS historical valuation versus established balance engines: '+JSON.stringify(result));

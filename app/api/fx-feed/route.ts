@@ -1,0 +1,20 @@
+import {z} from 'zod';
+import {getChatGPTUser} from '../../chatgpt-auth';
+import {ApiError} from '../../../lib/repository';
+import {readJSON,RequestError} from '../../../lib/http';
+import {fxFeedOptionsSchema} from '../../../lib/fx-feed';
+import {listFxFeeds,fetchFxFeed,reviewFxFeed,commitFxFeed,downloadFxFeed,deleteFxFeed} from '../../../lib/fx-feed-repository';
+export const dynamic='force-dynamic';
+const headers={'Cache-Control':'no-store, private','X-Content-Type-Options':'nosniff'},id=z.string().uuid(),stamp={expectedRevision:z.number().int().safe().nonnegative(),receipt:z.string().regex(/^[a-f0-9]{64}$/)},page=z.number().int().min(0).max(20000).multipleOf(25).default(0),choices={policy:z.enum(['keep','replace']).default('keep'),inverse:z.boolean().default(true)},review=z.object({id,...choices,expectedRevision:stamp.expectedRevision.optional(),receipt:stamp.receipt.optional(),offset:page,issueOffset:page,unfilledOffset:page});
+const command=z.discriminatedUnion('action',[
+ z.object({action:z.literal('fetch'),requestId:id,options:fxFeedOptionsSchema}).strict(),
+ review.extend({action:z.literal('review')}).strict(),
+ review.extend({action:z.literal('export'),...stamp}).strict(),
+ z.object({action:z.literal('commit'),id,...choices,...stamp,confirmation:z.literal('APPROVE')}).strict(),
+ z.object({action:z.literal('delete'),id}).strict(),
+]).superRefine((c,ctx)=>{if(c.action==='review'||c.action==='export'){if((c.expectedRevision===undefined)!==(c.receipt===undefined)||((c.offset||c.issueOffset||c.unfilledOffset)&&c.expectedRevision===undefined))ctx.addIssue({code:'custom',message:'Use the current review receipt for page navigation.'});if(c.action==='export'&&(c.offset||c.issueOffset||c.unfilledOffset))ctx.addIssue({code:'custom',message:'Export the entire review.'});}});
+const querySchema=z.object({id:id.optional(),format:z.enum(['source','audit','csv']).optional()}).strict();
+async function user(request:Request,write=false){const u=await getChatGPTUser();if(!u)throw new ApiError(401,'Sign in with ChatGPT to continue.');if(write&&request.headers.get('origin')!==new URL(request.url).origin)throw new ApiError(403,'This request must come from this website.');return u.userId;}
+function failure(e:unknown){if(e instanceof ApiError||e instanceof RequestError)return Response.json({error:e.message},{status:e.status,headers});if(e instanceof z.ZodError)return Response.json({error:'Choose a supported currency pair, date range and current review.'},{status:400,headers});console.error('fx_feed_operation_failed');return Response.json({error:'The exchange-rate operation could not finish. Reopen its saved source before retrying.'},{status:500,headers});}
+export async function GET(request:Request){try{const owner=await user(request),p=new URL(request.url).searchParams;if([...p.keys()].some(k=>p.getAll(k).length!==1))throw new ApiError(400,'Supply each option once.');const c=querySchema.parse(Object.fromEntries(p));if(!c.id&&!c.format)return Response.json(await listFxFeeds(owner),{headers});if(!c.id||!c.format)throw new ApiError(400,'Choose a saved source and download format.');if(c.format==='csv'){const sources=await listFxFeeds(owner);if(sources.sources.find(s=>s.id===c.id)?.status!=='complete')throw new ApiError(400,'Use the current review receipt to export a pending source.');}return await downloadFxFeed(owner,c.id,c.format,{policy:'keep',inverse:true,offset:0,issueOffset:0,unfilledOffset:0});}catch(e){return failure(e);}}
+export async function POST(request:Request){try{const owner=await user(request,true);if(new URL(request.url).search)throw new ApiError(400,'Send options in the request body.');const c=command.parse(await readJSON(request,12000));if(c.action==='export')return await downloadFxFeed(owner,c.id,'csv',c);let result;if(c.action==='fetch')result=await fetchFxFeed(owner,c,request.signal);else if(c.action==='review')result=await reviewFxFeed(owner,c.id,c);else if(c.action==='commit')result=await commitFxFeed(owner,c.id,{...c,offset:0,issueOffset:0,unfilledOffset:0});else result=await deleteFxFeed(owner,c.id);return Response.json(result,{headers});}catch(e){return failure(e);}}

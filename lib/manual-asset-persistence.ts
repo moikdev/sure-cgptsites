@@ -1,0 +1,2 @@
+import {database} from './repository';import type {ManualAssetDetails} from './manual-asset-schema';
+export function manualAssetDetailsStatements(owner:string,id:string,details:ManualAssetDetails|null|undefined){return [details?database().prepare('INSERT INTO manual_asset_details(owner_id,account_id,details_json) VALUES(?,?,?) ON CONFLICT(owner_id,account_id) DO UPDATE SET details_json=excluded.details_json').bind(owner,id,JSON.stringify(details)):database().prepare('DELETE FROM manual_asset_details WHERE owner_id=? AND account_id=?').bind(owner,id)];}

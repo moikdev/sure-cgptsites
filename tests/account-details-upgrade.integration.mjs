@@ -1,0 +1,23 @@
+import assert from 'node:assert/strict';
+import {execFileSync} from 'node:child_process';
+import {mkdtempSync,mkdirSync,cpSync,readdirSync,readFileSync,writeFileSync,rmSync} from 'node:fs';
+import {tmpdir} from 'node:os';import {join,resolve} from 'node:path';
+const work=mkdtempSync(join(tmpdir(),'sure-details-upgrade-')),migrations=join(work,'drizzle'),persist=join(work,'state'),configPath=join(work,'wrangler.json');mkdirSync(migrations);
+const config=JSON.parse(readFileSync('dist/server/wrangler.json','utf8'));config.main=resolve('dist/server/index.js');config.assets={directory:resolve('dist/client')};config.d1_databases=config.d1_databases.map(d=>({...d,migrations_dir:migrations}));writeFileSync(configPath,JSON.stringify(config));
+const run=args=>execFileSync(process.execPath,['--import','./scripts/sites-env.mjs','./node_modules/wrangler/bin/wrangler.js','d1',...args,'--local','--config',configPath,'--persist-to',persist],{encoding:'utf8',stdio:'pipe',env:{...process.env,CI:'1'},maxBuffer:4000000});
+const sql=command=>JSON.parse(run(['execute','DB','--command',command,'--json'])),snapshot=file=>JSON.parse(readFileSync(file,'utf8'));let checks=0;const check=(a,b)=>{checks++;assert.deepEqual(a,b);};
+try{
+ for(const file of readdirSync('drizzle').filter(f=>f.endsWith('.sql')&&Number(f.slice(0,4))<=59))cpSync('drizzle/'+file,join(migrations,file));run(['migrations','apply','DB']);
+ const sqlite=join(persist,'v3/d1/miniflare-D1DatabaseObject',readdirSync(join(persist,'v3/d1/miniflare-D1DatabaseObject')).find(f=>f.endsWith('.sqlite')&&f!=='metadata.sqlite')),beforeFile=join(work,'before.json'),afterFile=join(work,'after.json');
+ execFileSync('python3',['tests/zero-upgrade-fixture.py','seed',sqlite,beforeFile],{encoding:'utf8'});
+ for(const name of ['0060_qif_imports.sql','0061_account_archive_dates.sql'])cpSync('drizzle/'+name,join(migrations,name));run(['migrations','apply','DB']);
+ sql("UPDATE accounts SET archived=1,name='Legacy HSA' WHERE id='zero-schema-account';UPDATE account_archive_dates SET archived_on='2024-02-29' WHERE account_id='zero-schema-account';INSERT INTO accounts(id,owner_id,name,type,currency,opening_balance,opening_date) VALUES('archive-active','zero-schema-owner','Active','checking','USD',12345,'2020-01-01')");
+ execFileSync('python3',['tests/zero-upgrade-fixture.py','fingerprint',sqlite,beforeFile],{encoding:'utf8'});const before=snapshot(beforeFile);check(Object.keys(before.tables).length,64);check(before.foreignKeyCheck,[]);
+ const migration=readFileSync('drizzle/0062_account_details.sql','utf8'),path=join(migrations,'0062_account_details.sql');writeFileSync(path,migration+'\nSELECT __account_details_missing_function();\n');let failure;
+ try{run(['migrations','apply','DB']);}catch(e){failure=String(e.stdout)+String(e.stderr);}assert.ok(failure?.includes('__account_details_missing_function'),failure?.slice(-1200));checks++;
+ execFileSync('python3',['tests/zero-upgrade-fixture.py','fingerprint',sqlite,afterFile],{encoding:'utf8'});check(snapshot(afterFile),before);
+ writeFileSync(path,migration);run(['migrations','apply','DB']);execFileSync('python3',['tests/zero-upgrade-fixture.py','fingerprint',sqlite,afterFile],{encoding:'utf8'});const after=snapshot(afterFile);check(Object.keys(after.tables).length,65);
+ for(const table of Object.keys(before.tables))check(after.tables[table],before.tables[table]);for(const trigger of before.triggers)check(after.triggers.find(t=>t[0]===trigger[0]),trigger);for(const index of before.indexes)check(after.indexes.find(t=>t[0]===index[0]),index);check(after.tables.account_details.rows,0);check(after.foreignKeyCheck,[]);
+ console.log(`${checks} real D1 schema-61 → 62 checks: ${Object.values(before.tables).reduce((n,t)=>n+t.rows,0)} synthetic rows; all 64 prior table fingerprints and original trigger/index definitions preserved, late-failure rollback and no invented legacy subtypes/tax treatment.`);
+ console.log(execFileSync('python3',['tests/account-details-schema.py',sqlite],{encoding:'utf8'}).trim());
+}finally{rmSync(work,{recursive:true,force:true});}
